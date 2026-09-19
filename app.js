@@ -85,15 +85,18 @@ function getVisibleTodos() {
   return todos;
 }
 
-/** 清單為空時,依篩選條件給不同的提示文字 */
+/**
+ * 依據當前篩選條件取得清單為空時的提示訊息
+ * @returns {string} 提示文字
+ */
 function getEmptyMessage() {
   if (todos.length === 0) {
-    return '還沒有任何待辦事項,新增一個吧!';
+    return '還沒有任何待辦事項，新增一個吧！';
   }
   if (currentFilter === 'active') {
-    return '太棒了,沒有未完成的事項!';
+    return '太棒了，沒有未完成的事項！（已完成的事項可在「已完成」分類查看）';
   }
-  return '還沒有已完成的事項。';
+  return '目前沒有已完成的事項（取消勾選的事項已移至「未完成」，切換篩選即可查看）。';
 }
 
 /** 依照目前的 todos 陣列與篩選條件,重新畫出整份清單 */
