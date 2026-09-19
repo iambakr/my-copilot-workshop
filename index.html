@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>待辦清單</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- 主容器：置中卡片設計 -->
+  <main class="todo-card">
+    <!-- 頁頭標題 -->
+    <header class="todo-header">
+      <h1 class="todo-title">待辦清單</h1>
+      <p class="todo-subtitle">記錄日常大小事，輕鬆保持高效</p>
+    </header>
+
+    <!-- 輸入表單區域 -->
+    <form id="todo-form" class="todo-form" autocomplete="off">
+      <input
+        type="text"
+        id="todo-input"
+        class="todo-input"
+        placeholder="新增待辦事項..."
+        aria-label="待辦事項內容"
+      >
+      <button type="submit" id="add-btn" class="todo-add-btn">
+        <svg class="icon-add" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>新增</span>
+      </button>
+    </form>
+
+    <!-- 待辦事項列表容器 -->
+    <section class="todo-list-container">
+      <ul id="todo-list" class="todo-list" aria-live="polite"></ul>
+
+      <!-- 空清單時的提示 -->
+      <div id="empty-state" class="empty-state" style="display: none;">
+        <svg class="empty-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 11l3 3L22 4"></path>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+        </svg>
+        <p class="empty-text">還沒有任何待辦事項，新增一個吧！</p>
+      </div>
+    </section>
+
+    <!-- 頁尾資訊列 -->
+    <footer class="todo-footer">
+      <span id="pending-count" class="pending-count">未完成: 0 項</span>
+    </footer>
+  </main>
+
+  <!-- 原生 JavaScript 邏輯腳本 -->
+  <script src="app.js"></script>
+</body>
+</html>
