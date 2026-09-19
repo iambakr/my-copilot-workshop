@@ -1,199 +1,230 @@
+// ===== 我的待辦清單 =====
+// 純前端實作,不使用任何框架或套件。資料與偏好設定都存在瀏覽器的 localStorage。
+
+const STORAGE_KEY = 'workshop-todos';
+const THEME_KEY = 'workshop-theme';
+
+// 取得畫面上會用到的元素
+const form = document.getElementById('todo-form');
+const input = document.getElementById('todo-input');
+const list = document.getElementById('todo-list');
+const emptyState = document.getElementById('empty-state');
+const remainingCount = document.getElementById('remaining-count');
+const filterButtons = document.querySelectorAll('.btn-filter');
+const themeToggle = document.getElementById('theme-toggle');
+const themeIcon = document.getElementById('theme-icon');
+const themeLabel = document.getElementById('theme-label');
+
+// 所有待辦事項都放在這個陣列裡
+// 每一筆的格式:{ id: '169...', text: '買牛奶', completed: false }
+let todos = loadTodos();
+
+// 目前的篩選條件:'all' | 'active' | 'completed'
+let currentFilter = 'all';
+
+// ---------- 資料存取 ----------
+
+/** 從 localStorage 讀回待辦清單,讀不到或格式壞掉就回傳空陣列 */
+function loadTodos() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const parsed = saved ? JSON.parse(saved) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn('讀取待辦清單失敗,將以空清單開始。', error);
+    return [];
+  }
+}
+
+/** 把目前的待辦清單寫回 localStorage */
+function saveTodos() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+}
+
+// ---------- 深色模式 ----------
+
 /**
- * =========================================================
- * 待辦清單邏輯腳本 (app.js)
- * 原生 JavaScript 實作，支援 localStorage 持久化儲存
- * =========================================================
+ * 套用主題。
+ * @param {'light' | 'dark'} theme
  */
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
 
-// 當 DOM 內容加載完成後啟動應用程式
-document.addEventListener('DOMContentLoaded', () => {
-  // ---------------------------------------------------------
-  // 1. 常數與 DOM 元素選取
-  // ---------------------------------------------------------
-  const STORAGE_KEY = 'simple_todo_list_data';
+  const isDark = theme === 'dark';
+  themeIcon.textContent = isDark ? '☀️' : '🌙';
+  themeLabel.textContent = isDark ? '淺色模式' : '深色模式';
+  themeToggle.setAttribute('aria-pressed', String(isDark));
+}
 
-  const todoForm = document.getElementById('todo-form');
-  const todoInput = document.getElementById('todo-input');
-  const todoList = document.getElementById('todo-list');
-  const emptyState = document.getElementById('empty-state');
-  const pendingCount = document.getElementById('pending-count');
+/**
+ * 決定一開始要用哪個主題:
+ * 使用者選過就聽使用者的,沒選過就跟隨作業系統設定。
+ */
+function initTheme() {
+  const savedTheme = localStorage.getItem(THEME_KEY);
 
-  // 待辦事項資料陣列：格式為 { id: number, text: string, completed: boolean }
-  let todos = loadTodos();
-
-  // ---------------------------------------------------------
-  // 2. 本地儲存 (localStorage) 讀取與寫入函式
-  // ---------------------------------------------------------
-  /**
-   * 從 localStorage 讀取待辦事項
-   * @returns {Array} 待辦事項陣列
-   */
-  function loadTodos() {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch (error) {
-      console.error('讀取 localStorage 失敗:', error);
-      return [];
-    }
+  if (savedTheme === 'light' || savedTheme === 'dark') {
+    applyTheme(savedTheme);
+    return;
   }
 
-  /**
-   * 將當前待辦事項儲存至 localStorage
-   */
-  function saveTodos() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
-    } catch (error) {
-      console.error('儲存至 localStorage 失敗:', error);
-    }
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(prefersDark ? 'dark' : 'light');
+}
+
+// ---------- 畫面繪製 ----------
+
+/** 依照目前的篩選條件,回傳要顯示的待辦事項 */
+function getVisibleTodos() {
+  if (currentFilter === 'active') {
+    return todos.filter((todo) => !todo.completed);
   }
-
-  // ---------------------------------------------------------
-  // 3. 畫面渲染函式
-  // ---------------------------------------------------------
-  /**
-   * 重新渲染整個待辦事項清單與統計資訊
-   */
-  function render() {
-    // 清空現有清單 DOM
-    todoList.innerHTML = '';
-
-    // 若清單為空，顯示提示訊息；否則隱藏提示
-    if (todos.length === 0) {
-      emptyState.style.display = 'flex';
-    } else {
-      emptyState.style.display = 'none';
-
-      // 依序建立每個待辦項目
-      todos.forEach((todo) => {
-        const li = document.createElement('li');
-        li.className = `todo-item${todo.completed ? ' completed' : ''}`;
-        li.dataset.id = todo.id;
-
-        // 左側：勾選框與內容文字
-        const leftWrap = document.createElement('label');
-        leftWrap.className = 'todo-item-left';
-
-        // 勾選框
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'todo-checkbox';
-        checkbox.checked = todo.completed;
-        checkbox.setAttribute('aria-label', `標記「${todo.text}」為已完成`);
-        checkbox.addEventListener('change', () => toggleTodo(todo.id));
-
-        // 事項文字 (使用 textContent 避免 XSS)
-        const textSpan = document.createElement('span');
-        textSpan.className = 'todo-text';
-        textSpan.textContent = todo.text;
-
-        leftWrap.appendChild(checkbox);
-        leftWrap.appendChild(textSpan);
-
-        // 右側：刪除按鈕
-        const deleteBtn = document.createElement('button');
-        deleteBtn.type = 'button';
-        deleteBtn.className = 'todo-delete-btn';
-        deleteBtn.setAttribute('aria-label', `刪除「${todo.text}」`);
-        deleteBtn.title = '刪除此項目';
-        // 垃圾桶圖示 (SVG)
-        deleteBtn.innerHTML = `
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="3 6 5 6 21 6"></polyline>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            <line x1="10" y1="11" x2="10" y2="17"></line>
-            <line x1="14" y1="11" x2="14" y2="17"></line>
-          </svg>
-        `;
-        deleteBtn.addEventListener('click', () => deleteTodo(todo.id));
-
-        li.appendChild(leftWrap);
-        li.appendChild(deleteBtn);
-        todoList.appendChild(li);
-      });
-    }
-
-    // 更新底部「未完成: N 項」統計
-    updatePendingCount();
+  if (currentFilter === 'completed') {
+    return todos.filter((todo) => todo.completed);
   }
+  return todos;
+}
 
-  /**
-   * 計算並更新未完成事項數量
-   */
-  function updatePendingCount() {
-    const uncompletedCount = todos.filter((item) => !item.completed).length;
-    pendingCount.textContent = `未完成: ${uncompletedCount} 項`;
+/** 清單為空時,依篩選條件給不同的提示文字 */
+function getEmptyMessage() {
+  if (todos.length === 0) {
+    return '還沒有任何待辦事項,新增一個吧!';
   }
-
-  // ---------------------------------------------------------
-  // 4. 事件與業務操作
-  // ---------------------------------------------------------
-  /**
-   * 新增待辦事項
-   * @param {string} text - 輸入的文字
-   */
-  function addTodo(text) {
-    const trimmedText = text.trim();
-
-    // 檢查空白：如果內容只有空白字元則不新增
-    if (!trimmedText) {
-      todoInput.focus();
-      return;
-    }
-
-    const newTodo = {
-      id: Date.now(), // 使用時間戳記作為唯一識別識別碼
-      text: trimmedText,
-      completed: false,
-    };
-
-    todos.push(newTodo);
-    saveTodos();
-    render();
-
-    // 清空輸入框並維持聚焦
-    todoInput.value = '';
-    todoInput.focus();
+  if (currentFilter === 'active') {
+    return '太棒了,沒有未完成的事項!';
   }
+  return '還沒有已完成的事項。';
+}
 
-  /**
-   * 切換待辦事項的完成狀態
-   * @param {number} id - 事項識別碼
-   */
-  function toggleTodo(id) {
-    todos = todos.map((item) => {
-      if (item.id === id) {
-        return { ...item, completed: !item.completed };
-      }
-      return item;
-    });
+/** 依照目前的 todos 陣列與篩選條件,重新畫出整份清單 */
+function render() {
+  const visibleTodos = getVisibleTodos();
 
-    saveTodos();
-    render();
-  }
+  list.replaceChildren();
 
-  /**
-   * 刪除特定待辦事項
-   * @param {number} id - 事項識別碼
-   */
-  function deleteTodo(id) {
-    todos = todos.filter((item) => item.id !== id);
-    saveTodos();
-    render();
-  }
+  visibleTodos.forEach((todo) => {
+    const item = document.createElement('li');
+    item.className = todo.completed ? 'todo-item completed' : 'todo-item';
+    item.dataset.id = todo.id;
 
-  // ---------------------------------------------------------
-  // 5. 事件監聽器綁定
-  // ---------------------------------------------------------
-  // 表單送出事件 (按下 Enter 或點擊「新增」按鈕皆會觸發)
-  todoForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    addTodo(todoInput.value);
+    // 完成勾選框
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = todo.completed;
+    checkbox.setAttribute('aria-label', `標記「${todo.text}」為完成`);
+
+    // 待辦文字
+    const text = document.createElement('span');
+    text.className = 'todo-text';
+    text.textContent = todo.text;
+
+    // 刪除按鈕
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'btn-delete';
+    deleteButton.textContent = '✕';
+    deleteButton.setAttribute('aria-label', `刪除「${todo.text}」`);
+
+    item.append(checkbox, text, deleteButton);
+    list.append(item);
   });
 
-  // ---------------------------------------------------------
-  // 6. 初始化渲染
-  // ---------------------------------------------------------
+  // 目前篩選結果是空的時候顯示提示文字
+  emptyState.hidden = visibleTodos.length > 0;
+  emptyState.textContent = getEmptyMessage();
+
+  // 更新未完成數量(不受篩選影響,永遠是整體數量)
+  const remaining = todos.filter((todo) => !todo.completed).length;
+  remainingCount.textContent = `未完成:${remaining} 項`;
+}
+
+// ---------- 操作行為 ----------
+
+/** 產生一組不會重複的 id(時間戳 + 隨機碼) */
+function createId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** 新增一筆待辦 */
+function addTodo(text) {
+  todos.push({
+    id: createId(),
+    text,
+    completed: false,
+  });
+  saveTodos();
   render();
+}
+
+/** 切換某一筆待辦的完成狀態 */
+function toggleTodo(id) {
+  todos = todos.map((todo) =>
+    todo.id === id ? { ...todo, completed: !todo.completed } : todo
+  );
+  saveTodos();
+  render();
+}
+
+/** 刪除某一筆待辦 */
+function deleteTodo(id) {
+  todos = todos.filter((todo) => todo.id !== id);
+  saveTodos();
+  render();
+}
+
+/** 切換篩選條件 */
+function setFilter(filter) {
+  currentFilter = filter;
+
+  filterButtons.forEach((button) => {
+    const isActive = button.dataset.filter === filter;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+
+  render();
+}
+
+// ---------- 事件綁定 ----------
+
+// 送出表單 = 新增待辦
+form.addEventListener('submit', (event) => {
+  event.preventDefault();
+
+  const text = input.value.trim();
+  if (!text) return; // 空白內容不新增
+
+  addTodo(text);
+  input.value = '';
+  input.focus();
 });
+
+// 用事件委派處理清單內的點擊(勾選完成 / 刪除)
+list.addEventListener('click', (event) => {
+  const item = event.target.closest('.todo-item');
+  if (!item) return;
+
+  const id = item.dataset.id;
+
+  if (event.target.matches('input[type="checkbox"]')) {
+    toggleTodo(id);
+  } else if (event.target.matches('.btn-delete')) {
+    deleteTodo(id);
+  }
+});
+
+// 篩選按鈕
+filterButtons.forEach((button) => {
+  button.addEventListener('click', () => setFilter(button.dataset.filter));
+});
+
+// 深色模式切換,並把選擇記在 localStorage
+themeToggle.addEventListener('click', () => {
+  const nextTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  applyTheme(nextTheme);
+  localStorage.setItem(THEME_KEY, nextTheme);
+});
+
+// 頁面載入時先套用主題並畫一次清單
+initTheme();
+render();
